@@ -9,7 +9,7 @@ from distrax._src.bijectors.masked_coupling import MaskedCoupling
 from distrax._src.distributions.transformed import Transformed
 from distrax._src.utils import math
 
-from ..custom_types import Array, Key
+from .custom_types import Array, Key
 
 
 class TransformedConditional(Transformed):
