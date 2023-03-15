@@ -6,7 +6,10 @@ authors = ["Jeff Shen <shenjeff@princeton.edu>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.8"
+distrax = "^0.1"
+equinox = "^0.9"
+jax = "^0.4"
 
 
 [build-system]
