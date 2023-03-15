@@ -218,10 +218,14 @@ def _rational_quadratic_spline_inv(
     # If y is outside the spline range, we default to a linear transformation.
     x = jnp.where(below_range, (y - y_pos[0]) / knot_slopes[0] + x_pos[0], x)
     x = jnp.where(above_range, (y - y_pos[-1]) / knot_slopes[-1] + x_pos[-1], x)
+    logdet = jnp.where(below_range, -jnp.log(knot_slopes[0]), logdet)
+    logdet = jnp.where(above_range, -jnp.log(knot_slopes[-1]), logdet)
+    return x, logdet
 
 
 class RationalQuadraticSpline(eqx.Module):
 
+    dtype: type = eqx.static_field()
     params: Array
     num_bins: int = eqx.static_field()
     knot_slopes: Array
@@ -302,12 +306,12 @@ class RationalQuadraticSpline(eqx.Module):
             raise ValueError(
                 f"The minimum knot slope must be positive; got" f" {min_knot_slope}."
             )
-        self._dtype = params.dtype
-        self._num_bins = (params.shape[-1] - 1) // 3
+        self.dtype = params.dtype
+        self.num_bins = (params.shape[-1] - 1) // 3
         # Extract unnormalized parameters.
-        unnormalized_bin_widths = params[..., : self._num_bins]
-        unnormalized_bin_heights = params[..., self._num_bins : 2 * self._num_bins]
-        unnormalized_knot_slopes = params[..., 2 * self._num_bins :]
+        unnormalized_bin_widths = params[..., : self.num_bins]
+        unnormalized_bin_heights = params[..., self.num_bins : 2 * self.num_bins]
+        unnormalized_knot_slopes = params[..., 2 * self.num_bins :]
         # Normalize bin sizes and compute bin positions on the x and y axis.
         range_size = range_max - range_min
         bin_widths = _normalize_bin_sizes(
@@ -319,27 +323,27 @@ class RationalQuadraticSpline(eqx.Module):
         x_pos = range_min + jnp.cumsum(bin_widths[..., :-1], axis=-1)
         y_pos = range_min + jnp.cumsum(bin_heights[..., :-1], axis=-1)
         pad_shape = params.shape[:-1] + (1,)
-        pad_below = jnp.full(pad_shape, range_min, dtype=self._dtype)
-        pad_above = jnp.full(pad_shape, range_max, dtype=self._dtype)
-        self._x_pos = jnp.concatenate([pad_below, x_pos, pad_above], axis=-1)
-        self._y_pos = jnp.concatenate([pad_below, y_pos, pad_above], axis=-1)
+        pad_below = jnp.full(pad_shape, range_min, dtype=self.dtype)
+        pad_above = jnp.full(pad_shape, range_max, dtype=self.dtype)
+        self.x_pos = jnp.concatenate([pad_below, x_pos, pad_above], axis=-1)
+        self.y_pos = jnp.concatenate([pad_below, y_pos, pad_above], axis=-1)
         # Normalize knot slopes and enforce requested boundary conditions.
         knot_slopes = _normalize_knot_slopes(unnormalized_knot_slopes, min_knot_slope)
         if boundary_slopes == "unconstrained":
-            self._knot_slopes = knot_slopes
+            self.knot_slopes = knot_slopes
         elif boundary_slopes == "lower_identity":
-            ones = jnp.ones(pad_shape, self._dtype)
-            self._knot_slopes = jnp.concatenate([ones, knot_slopes[..., 1:]], axis=-1)
+            ones = jnp.ones(pad_shape, self.dtype)
+            self.knot_slopes = jnp.concatenate([ones, knot_slopes[..., 1:]], axis=-1)
         elif boundary_slopes == "upper_identity":
-            ones = jnp.ones(pad_shape, self._dtype)
-            self._knot_slopes = jnp.concatenate([knot_slopes[..., :-1], ones], axis=-1)
+            ones = jnp.ones(pad_shape, self.dtype)
+            self.knot_slopes = jnp.concatenate([knot_slopes[..., :-1], ones], axis=-1)
         elif boundary_slopes == "identity":
-            ones = jnp.ones(pad_shape, self._dtype)
-            self._knot_slopes = jnp.concatenate(
+            ones = jnp.ones(pad_shape, self.dtype)
+            self.knot_slopes = jnp.concatenate(
                 [ones, knot_slopes[..., 1:-1], ones], axis=-1
             )
         elif boundary_slopes == "circular":
-            self._knot_slopes = jnp.concatenate(
+            self.knot_slopes = jnp.concatenate(
                 [knot_slopes[..., :-1], knot_slopes[..., :1]], axis=-1
             )
         else:
@@ -348,17 +352,13 @@ class RationalQuadraticSpline(eqx.Module):
             )
 
         self.params = params
-        self.num_bins = self._num_bins
-        self.knot_slopes = self._knot_slopes
-        self.x_pos = self._x_pos
-        self.y_pos = self._y_pos
 
     def forward_and_log_det(self, x: Array) -> Tuple[Array, Array]:
         """Computes y = f(x) and log|det J(f)(x)|."""
         fn = jnp.vectorize(
             _rational_quadratic_spline_fwd, signature="(),(n),(n),(n)->(),()"
         )
-        y, logdet = fn(x, self._x_pos, self._y_pos, self._knot_slopes)
+        y, logdet = fn(x, self.x_pos, self.y_pos, self.knot_slopes)
         return y, logdet
 
     def inverse_and_log_det(self, y: Array) -> Tuple[Array, Array]:
@@ -366,5 +366,5 @@ class RationalQuadraticSpline(eqx.Module):
         fn = jnp.vectorize(
             _rational_quadratic_spline_inv, signature="(),(n),(n),(n)->(),()"
         )
-        x, logdet = fn(y, self._x_pos, self._y_pos, self._knot_slopes)
+        x, logdet = fn(y, self.x_pos, self.y_pos, self.knot_slopes)
         return x, logdet
