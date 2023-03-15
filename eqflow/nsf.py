@@ -1,16 +1,18 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import distrax
 import equinox as eqx
 import jax
 import jax.numpy as jnp
 
-from .bijectors import (
+from .distributions import EqDistribution
+from .bijectors.bijectors import (
     ChainConditional,
     InverseConditional,
     MaskedCouplingConditional,
-    TransformedConditional,
+    NormalizingFlow,
 )
+from .bijectors.rqs import RationalQuadraticSpline
 from .custom_types import Array, Key
 
 
@@ -57,10 +59,7 @@ class NeuralSplineFlow(eqx.Module):
     n_transforms: int = eqx.static_field()
     n_bins: int = eqx.static_field()
     hidden_dims: List[int] = eqx.static_field()
-    conditioners: list
-    bijector: InverseConditional
-    base_dist: distrax.Distribution
-    flow: TransformedConditional
+    flow: NormalizingFlow
 
     def __init__(
         self,
@@ -78,7 +77,7 @@ class NeuralSplineFlow(eqx.Module):
         self.hidden_dims = hidden_dims
 
         def bijector_fn(params: Array):
-            return distrax.RationalQuadraticSpline(params, range_min=0.0, range_max=1.0)
+            return RationalQuadraticSpline(params, range_min=0.0, range_max=1.0)
 
         event_shape = (self.n_dim,)
 
@@ -90,7 +89,7 @@ class NeuralSplineFlow(eqx.Module):
 
         keys = jax.random.split(key, self.n_transforms)
 
-        self.conditioners = [
+        conditioners = [
             MLP(
                 key=keys[i],
                 n_in=self.n_dim,
@@ -105,23 +104,28 @@ class NeuralSplineFlow(eqx.Module):
         for i in range(self.n_transforms):
             bijectors.append(
                 MaskedCouplingConditional(
-                    mask=mask, bijector=bijector_fn, conditioner=self.conditioners[i]
+                    mask=mask, bijector_fn=bijector_fn, conditioner=conditioners[i]
                 )
             )
             mask = jnp.logical_not(mask)
 
-        self.bijector = InverseConditional(ChainConditional(bijectors))
-        self.base_dist = distrax.MultivariateNormalDiag(
-            jnp.zeros(event_shape), jnp.ones(event_shape)
+        bijector = InverseConditional(ChainConditional(bijectors))
+        base_dist = EqDistribution(
+            distrax.MultivariateNormalDiag,
+            jnp.zeros(event_shape),
+            jnp.ones(event_shape),
         )
-        self.flow = TransformedConditional(self.base_dist, self.bijector)
+        self.flow = NormalizingFlow(base_dist, bijector)
 
-    def __call__(self, x: Array, context: Optional[Array] = None):
-        return self.flow.log_prob(
-            x.reshape(-1, self.n_dim), context.reshape(-1, self.n_context)
-        )
+    def log_prob(self, x: Array, context: Optional[Array] = None) -> Array:
+        return self.flow.log_prob(x, context=context)
 
-    def sample(self, key: Key, context: Optional[Array] = None):
-        return self.flow.sample(key, sample_shape=(1,), context=context).reshape(
-            self.n_dim
-        )
+    def sample(
+        self, key: Key, n_samples: int = 1, context: Optional[Array] = None
+    ) -> Array:
+        return self.flow.sample(key, n_samples=n_samples, context=context)
+
+    def sample_and_log_prob(
+        self, key: Key, n_samples: int = 1, context: Optional[Array] = None
+    ) -> Tuple[Array, Array]:
+        return self.flow.sample_and_log_prob(key, n_samples=n_samples, context=context)
