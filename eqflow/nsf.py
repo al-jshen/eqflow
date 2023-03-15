@@ -69,6 +69,8 @@ class NeuralSplineFlow(eqx.Module):
         n_transforms: int,
         n_bins: int,
         hidden_dims: List[int] = [128, 128],
+        spline_min=0.0,
+        spline_max=1.0,
     ):
         self.n_dim = n_dim
         self.n_context = n_context
@@ -77,7 +79,9 @@ class NeuralSplineFlow(eqx.Module):
         self.hidden_dims = hidden_dims
 
         def bijector_fn(params: Array):
-            return RationalQuadraticSpline(params, range_min=0.0, range_max=1.0)
+            return RationalQuadraticSpline(
+                params, range_min=spline_min, range_max=spline_max
+            )
 
         event_shape = (self.n_dim,)
 
