@@ -117,7 +117,9 @@ class NeuralSplineFlow(eqx.Module):
         self.flow = TransformedConditional(self.base_dist, self.bijector)
 
     def __call__(self, x: Array, context: Optional[Array] = None):
-        return self.flow.log_prob(x, context)
+        return self.flow.log_prob(
+            x.reshape(-1, self.n_dim), context.reshape(-1, self.n_context)
+        )
 
     def sample(self, key: Key, context: Optional[Array] = None):
         return self.flow.sample(key, sample_shape=(1,), context=context).reshape(
