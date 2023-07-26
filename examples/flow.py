@@ -1,18 +1,18 @@
-from eqflow.bijectors.rqs import RationalQuadraticSpline
-from eqflow.distributions import EqDistribution
+import distrax
+import equinox as eqx
+import jax
+import jax.numpy as jnp
+
 from eqflow.bijectors.bijectors import (
     ChainConditional,
     InverseConditional,
     MaskedCouplingConditional,
     NormalizingFlow,
 )
-from eqflow.nsf import MLP, NeuralSplineFlow
+from eqflow.bijectors.rqs import RationalQuadraticSpline
 from eqflow.custom_types import Array
-
-import distrax
-import jax
-import jax.numpy as jnp
-import equinox as eqx
+from eqflow.distributions import EqDistribution
+from eqflow.nsf import MLP, NeuralSplineFlow
 
 rng = jax.random.PRNGKey(0)
 

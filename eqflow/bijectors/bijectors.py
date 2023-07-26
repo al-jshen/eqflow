@@ -1,11 +1,11 @@
 from typing import List, Optional, Tuple
 
+import distrax
+import equinox as eqx
 import jax
 import jax.numpy as jnp
-import distrax
-from distrax._src.utils import math
 from distrax._src.distributions.transformed import Transformed
-import equinox as eqx
+from distrax._src.utils import math
 
 from ..custom_types import Array, Key
 from ..distributions import EqDistribution

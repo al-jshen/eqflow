@@ -1,8 +1,10 @@
-from ..custom_types import Array
 from typing import Tuple
+
+import equinox as eqx
 import jax
 import jax.numpy as jnp
-import equinox as eqx
+
+from ..custom_types import Array
 
 
 def _normalize_bin_sizes(

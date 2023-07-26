@@ -1,6 +1,7 @@
+from typing import Any
+
 import equinox as eqx
 from jaxtyping import PyTree
-from typing import Any
 
 
 class EqDistribution(eqx.Module):

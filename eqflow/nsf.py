@@ -5,7 +5,6 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 
-from .distributions import EqDistribution
 from .bijectors.bijectors import (
     ChainConditional,
     InverseConditional,
@@ -14,6 +13,7 @@ from .bijectors.bijectors import (
 )
 from .bijectors.rqs import RationalQuadraticSpline
 from .custom_types import Array, Key
+from .distributions import EqDistribution
 
 
 class MLP(eqx.Module):

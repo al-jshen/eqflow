@@ -1,10 +1,12 @@
 from typing import Any, List, Tuple
+
+import distrax
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 import numpy as np
-import equinox as eqx
+
 from eqflow.custom_types import Array, Key
-import distrax
 
 
 def _make_dense_autoregressive_masks(

@@ -1,19 +1,19 @@
 from typing import Optional, Tuple
 
+import distrax
+import equinox as eqx
 import jax
 import jax.numpy as jnp
-import equinox as eqx
-import distrax
-from eqflow.custom_types import Key, Array
-from eqflow.distributions import EqDistribution
 
+from eqflow.bijectors.ar import MADE, MAF
 from eqflow.bijectors.bijectors import (
-    InverseConditional,
     ChainConditional,
+    InverseConditional,
     NormalizingFlow,
     Permute,
 )
-from eqflow.bijectors.ar import MAF, MADE
+from eqflow.custom_types import Array, Key
+from eqflow.distributions import EqDistribution
 
 
 class MaskedAutoregressiveFlow(eqx.Module):
