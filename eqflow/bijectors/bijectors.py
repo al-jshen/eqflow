@@ -1,8 +1,10 @@
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import jax
 import jax.numpy as jnp
+import distrax
 from distrax._src.utils import math
+from distrax._src.distributions.transformed import Transformed
 import equinox as eqx
 
 from ..custom_types import Array, Key
@@ -140,3 +142,62 @@ class MaskedCouplingConditional(eqx.Module):
             self.mask.ndim,
         )
         return x, logdet
+
+
+class Permute(distrax.Bijector):
+    def __init__(self, permutation: Array, axis: int = -1):
+
+        super().__init__(event_ndims_in=1)
+
+        self.permutation = jnp.array(permutation)
+        self.axis = axis
+
+    def permute_along_axis(self, x: Array, permutation: Array, axis: int = -1) -> Array:
+        x = jnp.moveaxis(x, axis, 0)
+        x = x[permutation, ...]
+        x = jnp.moveaxis(x, 0, axis)
+        return x
+
+    def forward_and_log_det(
+        self, x: Array, context: Optional[Array] = None
+    ) -> Tuple[Array, Array]:
+        y = self.permute_along_axis(x, self.permutation, axis=self.axis)
+        return y, jnp.zeros(x.shape[: -self.event_ndims_in])
+
+    def inverse_and_log_det(
+        self, y: Array, context: Optional[Array] = None
+    ) -> Tuple[Array, Array]:
+        inv_permutation = jnp.zeros_like(self.permutation)
+        inv_permutation = inv_permutation.at[self.permutation].set(
+            jnp.arange(len(self.permutation))
+        )
+        x = self.permute_along_axis(y, inv_permutation)
+        return x, jnp.zeros(y.shape[: -self.event_ndims_in])
+
+
+class TransformedConditional(Transformed):
+    def __init__(self, distribution, flow):
+        super().__init__(distribution, flow)
+
+    def sample(
+        self, seed: Key, sample_shape: List[int], context: Optional[Array] = None
+    ) -> Array:
+        x = self.distribution.sample(seed=seed, sample_shape=sample_shape)
+        y, _ = self.bijector.forward_and_log_det(x, context)
+        return y
+
+    def log_prob(self, x: Array, context: Optional[Array] = None) -> Array:
+        x, ildj_y = self.bijector.inverse_and_log_det(x, context)
+        lp_x = self.distribution.log_prob(x)
+        lp_y = lp_x + ildj_y
+        return lp_y
+
+    def sample_and_log_prob(
+        self, seed: Key, sample_shape: List[int], context: Optional[Array] = None
+    ) -> Tuple[Array, Array]:
+        x, lp_x = self.distribution.sample_and_log_prob(
+            seed=seed, sample_shape=sample_shape
+        )
+        y, fldj = jax.vmap(self.bijector.forward_and_log_det)(x, context)
+        lp_y = jax.vmap(jnp.subtract)(lp_x, fldj)
+        return y, lp_y
