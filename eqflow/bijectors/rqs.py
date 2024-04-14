@@ -8,8 +8,8 @@ import jax.numpy as jnp
 
 
 def _normalize_bin_sizes(
-    unnormalized_bin_sizes: Float[Array, ...], total_size: float, min_bin_size: float
-) -> Float[Array, ...]:
+    unnormalized_bin_sizes: Float[Array, "..."], total_size: float, min_bin_size: float
+) -> Float[Array, "..."]:
     """Make bin sizes sum to `total_size` and be no less than `min_bin_size`."""
     num_bins = unnormalized_bin_sizes.shape[-1]
     if num_bins * min_bin_size > total_size:
@@ -23,8 +23,8 @@ def _normalize_bin_sizes(
 
 
 def _normalize_knot_slopes(
-    unnormalized_knot_slopes: Float[Array, ...], min_knot_slope: float
-) -> Float[Array, ...]:
+    unnormalized_knot_slopes: Float[Array, "..."], min_knot_slope: float
+) -> Float[Array, "..."]:
     """Make knot slopes be no less than `min_knot_slope`."""
     # The offset is such that the normalized knot slope will be equal to 1
     # whenever the unnormalized knot slope is equal to 0.
@@ -38,11 +38,11 @@ def _normalize_knot_slopes(
 
 
 def _rational_quadratic_spline_fwd(
-    x: Float[Array, ...],
-    x_pos: Float[Array, ...],
-    y_pos: Float[Array, ...],
-    knot_slopes: Float[Array, ...],
-) -> Tuple[Float[Array, ...], Float[Array, ...]]:
+    x: Float[Array, "..."],
+    x_pos: Float[Array, "..."],
+    y_pos: Float[Array, "..."],
+    knot_slopes: Float[Array, "..."],
+) -> Tuple[Float[Array, "..."], Float[Array, "..."]]:
     """Applies a rational-quadratic spline to a scalar.
     Args:
       x: a scalar (0-dimensional array). The scalar `x` can be any real number; it
@@ -124,8 +124,8 @@ def _rational_quadratic_spline_fwd(
 
 
 def _safe_quadratic_root(
-    a: Float[Array, ...], b: Float[Array, ...], c: Float[Array, ...]
-) -> Float[Array, ...]:
+    a: Float[Array, "..."], b: Float[Array, "..."], c: Float[Array, "..."]
+) -> Float[Array, "..."]:
     """Implement a numerically stable version of the quadratic formula."""
     # This is not a general solution to the quadratic equation, as it assumes
     # b ** 2 - 4. * a * c is known a priori to be positive (and which of the two
@@ -153,11 +153,11 @@ def _safe_quadratic_root(
 
 
 def _rational_quadratic_spline_inv(
-    y: Float[Array, ...],
-    x_pos: Float[Array, ...],
-    y_pos: Float[Array, ...],
-    knot_slopes: Float[Array, ...],
-) -> Tuple[Float[Array, ...], Float[Array, ...]]:
+    y: Float[Array, "..."],
+    x_pos: Float[Array, "..."],
+    y_pos: Float[Array, "..."],
+    knot_slopes: Float[Array, "..."],
+) -> Tuple[Float[Array, "..."], Float[Array, "..."]]:
     """Applies the inverse of a rational-quadratic spline to a scalar.
     Args:
       y: a scalar (0-dimensional array). The scalar `y` can be any real number; it
@@ -235,15 +235,15 @@ def _rational_quadratic_spline_inv(
 
 class RationalQuadraticSpline(eqx.Module):
     dtype: type = eqx.static_field()
-    params: Float[Array, ...]
+    params: Float[Array, "..."]
     num_bins: int = eqx.static_field()
-    knot_slopes: Float[Array, ...]
-    x_pos: Float[Array, ...]
-    y_pos: Float[Array, ...]
+    knot_slopes: Float[Array, "..."]
+    x_pos: Float[Array, "..."]
+    y_pos: Float[Array, "..."]
 
     def __init__(
         self,
-        params: Float[Array, ...],
+        params: Float[Array, "..."],
         range_min: float,
         range_max: float,
         boundary_slopes: str = "unconstrained",
@@ -363,8 +363,8 @@ class RationalQuadraticSpline(eqx.Module):
         self.params = params
 
     def forward_and_log_det(
-        self, x: Float[Array, ...]
-    ) -> Tuple[Float[Array, ...], Float[Array, ...]]:
+        self, x: Float[Array, "..."]
+    ) -> Tuple[Float[Array, "..."], Float[Array, "..."]]:
         """Computes y = f(x) and log|det J(f)(x)|."""
         fn = jnp.vectorize(
             _rational_quadratic_spline_fwd, signature="(),(n),(n),(n)->(),()"
@@ -373,8 +373,8 @@ class RationalQuadraticSpline(eqx.Module):
         return y, logdet
 
     def inverse_and_log_det(
-        self, y: Float[Array, ...]
-    ) -> Tuple[Float[Array, ...], Float[Array, ...]]:
+        self, y: Float[Array, "..."]
+    ) -> Tuple[Float[Array, "..."], Float[Array, "..."]]:
         """Computes x = f^{-1}(y) and log|det J(f^{-1})(y)|."""
         fn = jnp.vectorize(
             _rational_quadratic_spline_inv, signature="(),(n),(n),(n)->(),()"

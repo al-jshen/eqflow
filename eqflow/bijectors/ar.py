@@ -225,11 +225,11 @@ class MaskedDense(eqx.Module):
     in_dims: int = eqx.static_field()
     out_dims: int = eqx.static_field()
     mask: Array = eqx.static_field()
-    weights: Float[Array, ...]
-    bias: Float[Array, ...]
+    weights: Float[Array, "..."]
+    bias: Float[Array, "..."]
 
     def __init__(
-        self, rng: PRNGKeyArray, in_dims: int, out_dims: int, mask: Float[Array, ...]
+        self, rng: PRNGKeyArray, in_dims: int, out_dims: int, mask: Float[Array, "..."]
     ):
         super().__init__()
         self.in_dims = in_dims
@@ -241,8 +241,8 @@ class MaskedDense(eqx.Module):
         self.bias = jnp.zeros(out_dims)
 
     def __call__(
-        self, x: Float[Array, ...], key: Optional[PRNGKeyArray] = None
-    ) -> Float[Array, ...]:
+        self, x: Float[Array, "..."], key: Optional[PRNGKeyArray] = None
+    ) -> Float[Array, "..."]:
         y = jax.lax.dot_general(
             x,
             self.weights,
@@ -306,7 +306,7 @@ class MADE(eqx.Module):
         )
         self.layers = eqx.nn.Sequential(layers)
 
-    def __call__(self, y: Float[Array, ...], context=None):
+    def __call__(self, y: Float[Array, "..."], context=None):
         if context is not None:
             # Stack with context on the left so that the parameters are autoregressively conditioned on it with left-to-right ordering
             y = jnp.hstack([context, y])

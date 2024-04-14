@@ -94,7 +94,7 @@ class MaskedAutoregressiveFlow(eqx.Module):
         self.flow = NormalizingFlow(base_dist, bijector)
 
     def log_prob(
-        self, x: Float[Array, ...], context: Optional[Float[Array, ...]] = None
+        self, x: Float[Array, "..."], context: Optional[Float[Array, "..."]] = None
     ) -> Array:
         return self.flow.log_prob(x, context=context)
 
@@ -102,7 +102,7 @@ class MaskedAutoregressiveFlow(eqx.Module):
         self,
         key: PRNGKeyArray,
         n_samples: int = 1,
-        context: Optional[Float[Array, ...]] = None,
+        context: Optional[Float[Array, "..."]] = None,
     ) -> Array:
         return self.flow.sample(key, n_samples=n_samples, context=context)
 
@@ -110,6 +110,6 @@ class MaskedAutoregressiveFlow(eqx.Module):
         self,
         key: PRNGKeyArray,
         n_samples: int = 1,
-        context: Optional[Float[Array, ...]] = None,
+        context: Optional[Float[Array, "..."]] = None,
     ) -> Tuple[Array, Array]:
         return self.flow.sample_and_log_prob(key, n_samples=n_samples, context=context)
