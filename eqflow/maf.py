@@ -1,10 +1,8 @@
 from typing import Optional, Tuple
 
-import distrax
-import equinox as eqx
-import jax
-import jax.numpy as jnp
+from jaxtyping import Array, Float, PRNGKeyArray
 
+import distrax
 from eqflow.bijectors.ar import MADE, MAF
 from eqflow.bijectors.bijectors import (
     ChainConditional,
@@ -12,12 +10,13 @@ from eqflow.bijectors.bijectors import (
     NormalizingFlow,
     Permute,
 )
-from eqflow.custom_types import Array, Key
 from eqflow.distributions import EqDistribution
+import equinox as eqx
+import jax
+import jax.numpy as jnp
 
 
 class MaskedAutoregressiveFlow(eqx.Module):
-
     n_dim: int
     n_context: int = 0
     n_transforms: int = 4
@@ -32,7 +31,7 @@ class MaskedAutoregressiveFlow(eqx.Module):
 
     def __init__(
         self,
-        rng: Key,
+        rng: PRNGKeyArray,
         n_dim: int,
         n_context: int = 0,
         n_transforms: int = 4,
@@ -94,15 +93,23 @@ class MaskedAutoregressiveFlow(eqx.Module):
         )
         self.flow = NormalizingFlow(base_dist, bijector)
 
-    def log_prob(self, x: Array, context: Optional[Array] = None) -> Array:
+    def log_prob(
+        self, x: Float[Array, ...], context: Optional[Float[Array, ...]] = None
+    ) -> Array:
         return self.flow.log_prob(x, context=context)
 
     def sample(
-        self, key: Key, n_samples: int = 1, context: Optional[Array] = None
+        self,
+        key: PRNGKeyArray,
+        n_samples: int = 1,
+        context: Optional[Float[Array, ...]] = None,
     ) -> Array:
         return self.flow.sample(key, n_samples=n_samples, context=context)
 
     def sample_and_log_prob(
-        self, key: Key, n_samples: int = 1, context: Optional[Array] = None
+        self,
+        key: PRNGKeyArray,
+        n_samples: int = 1,
+        context: Optional[Float[Array, ...]] = None,
     ) -> Tuple[Array, Array]:
         return self.flow.sample_and_log_prob(key, n_samples=n_samples, context=context)

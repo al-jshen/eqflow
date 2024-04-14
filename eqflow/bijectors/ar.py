@@ -1,12 +1,12 @@
 from typing import Any, Callable, List, Optional, Tuple
 
+from jaxtyping import Array, Float, PRNGKeyArray
+import numpy as np
+
 import distrax
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-import numpy as np
-
-from eqflow.custom_types import Array, Key
 
 
 def _make_dense_autoregressive_masks(
@@ -217,8 +217,7 @@ def _create_masks(degrees):
         for inp, out in zip(degrees[:-1], degrees[1:])
     ] + [
         # Create hidden->output mask.
-        degrees[-1][:, np.newaxis]
-        < degrees[0]
+        degrees[-1][:, np.newaxis] < degrees[0]
     ]
 
 
@@ -226,10 +225,12 @@ class MaskedDense(eqx.Module):
     in_dims: int = eqx.static_field()
     out_dims: int = eqx.static_field()
     mask: Array = eqx.static_field()
-    weights: Array
-    bias: Array
+    weights: Float[Array, ...]
+    bias: Float[Array, ...]
 
-    def __init__(self, rng: Key, in_dims: int, out_dims: int, mask: Array):
+    def __init__(
+        self, rng: PRNGKeyArray, in_dims: int, out_dims: int, mask: Float[Array, ...]
+    ):
         super().__init__()
         self.in_dims = in_dims
         self.out_dims = out_dims
@@ -239,8 +240,9 @@ class MaskedDense(eqx.Module):
         )
         self.bias = jnp.zeros(out_dims)
 
-    def __call__(self, x: Array, key: Optional[Key] = None) -> Array:
-
+    def __call__(
+        self, x: Float[Array, ...], key: Optional[PRNGKeyArray] = None
+    ) -> Float[Array, ...]:
         y = jax.lax.dot_general(
             x,
             self.weights,
@@ -259,13 +261,12 @@ class MADE(eqx.Module):
 
     def __init__(
         self,
-        rng: Key,
+        rng: PRNGKeyArray,
         n_params: int,
         n_context: int = 0,
         hidden_dims: Tuple[int, ...] = (32, 32),
         activation: str = "leaky_relu",
     ):
-
         self.n_params = n_params
         self.n_context = n_context
         self.hidden_dims = hidden_dims
@@ -305,7 +306,7 @@ class MADE(eqx.Module):
         )
         self.layers = eqx.nn.Sequential(layers)
 
-    def __call__(self, y: Array, context=None):
+    def __call__(self, y: Float[Array, ...], context=None):
         if context is not None:
             # Stack with context on the left so that the parameters are autoregressively conditioned on it with left-to-right ordering
             y = jnp.hstack([context, y])
@@ -324,12 +325,10 @@ class MADE(eqx.Module):
 
 
 class MAF(eqx.Module):
-
     autoregressive_fn: Callable = eqx.static_field()
     unroll_loop: bool = eqx.static_field()
 
     def __init__(self, bijector_fn, unroll_loop=False):
-
         self.autoregressive_fn = bijector_fn
         self.unroll_loop = unroll_loop
 

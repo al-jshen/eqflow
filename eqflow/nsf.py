@@ -1,5 +1,7 @@
 from typing import List, Optional, Tuple
 
+from jaxtyping import Array, Float, PRNGKeyArray
+
 import distrax
 import equinox as eqx
 import jax
@@ -12,21 +14,19 @@ from .bijectors.bijectors import (
     NormalizingFlow,
 )
 from .bijectors.rqs import RationalQuadraticSpline
-from .custom_types import Array, Key
 from .distributions import EqDistribution
 
 
 class MLP(eqx.Module):
-
     layers: list
 
     def __init__(
         self,
-        key: Key,
+        key: PRNGKeyArray,
         n_in: int,
         n_out: int,
         n_conditional: int = 0,
-        n_hidden=(16, 16, 16),
+        n_hidden: tuple[int, ...] = (16, 16, 16),
         act=None,
     ):
         if act is None:
@@ -43,7 +43,9 @@ class MLP(eqx.Module):
             self.layers.append(act[i])
         self.layers.pop()
 
-    def __call__(self, x: Array, context: Optional[Array] = None):
+    def __call__(
+        self, x: Float[Array, ...], context: Optional[Float[Array, ...]] = None
+    ):
         x = x.flatten()
         if context is not None:
             context = context.flatten()
@@ -63,7 +65,7 @@ class NeuralSplineFlow(eqx.Module):
 
     def __init__(
         self,
-        key: Key,
+        key: PRNGKeyArray,
         n_dim: int,
         n_context: int,
         n_transforms: int,
@@ -121,15 +123,23 @@ class NeuralSplineFlow(eqx.Module):
         )
         self.flow = NormalizingFlow(base_dist, bijector)
 
-    def log_prob(self, x: Array, context: Optional[Array] = None) -> Array:
+    def log_prob(
+        self, x: Float[Array, ...], context: Optional[Float[Array, ...]] = None
+    ) -> Array:
         return self.flow.log_prob(x, context=context)
 
     def sample(
-        self, key: Key, n_samples: int = 1, context: Optional[Array] = None
+        self,
+        key: PRNGKeyArray,
+        n_samples: int = 1,
+        context: Optional[Float[Array, ...]] = None,
     ) -> Array:
         return self.flow.sample(key, n_samples=n_samples, context=context)
 
     def sample_and_log_prob(
-        self, key: Key, n_samples: int = 1, context: Optional[Array] = None
+        self,
+        key: PRNGKeyArray,
+        n_samples: int = 1,
+        context: Optional[Float[Array, ...]] = None,
     ) -> Tuple[Array, Array]:
         return self.flow.sample_and_log_prob(key, n_samples=n_samples, context=context)
