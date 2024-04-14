@@ -144,10 +144,13 @@ class MaskedCouplingConditional(eqx.Module):
         return x, logdet
 
 
-class Permute(distrax.Bijector):
-    def __init__(self, permutation: Array, axis: int = -1):
+class Permute(eqx.Module):
 
-        super().__init__(event_ndims_in=1)
+    permutation: Array = eqx.static_field()
+    axis: int = eqx.static_field()
+    event_ndims_in: int = 1
+
+    def __init__(self, permutation: Array, axis: int = -1):
 
         self.permutation = jnp.array(permutation)
         self.axis = axis

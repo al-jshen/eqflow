@@ -1,4 +1,4 @@
-from typing import Any, List, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 import distrax
 import equinox as eqx
@@ -225,7 +225,7 @@ def _create_masks(degrees):
 class MaskedDense(eqx.Module):
     in_dims: int = eqx.static_field()
     out_dims: int = eqx.static_field()
-    mask: Array
+    mask: Array = eqx.static_field()
     weights: Array
     bias: Array
 
@@ -239,7 +239,7 @@ class MaskedDense(eqx.Module):
         )
         self.bias = jnp.zeros(out_dims)
 
-    def __call__(self, x: Array) -> Array:
+    def __call__(self, x: Array, key: Optional[Key] = None) -> Array:
 
         y = jax.lax.dot_general(
             x,
@@ -251,7 +251,6 @@ class MaskedDense(eqx.Module):
 
 
 class MADE(eqx.Module):
-    masks: List[Any]
     layers: eqx.nn.Sequential
     activation: str = eqx.static_field()
     n_params: int = eqx.static_field()
@@ -260,6 +259,7 @@ class MADE(eqx.Module):
 
     def __init__(
         self,
+        rng: Key,
         n_params: int,
         n_context: int = 0,
         hidden_dims: Tuple[int, ...] = (32, 32),
@@ -269,24 +269,39 @@ class MADE(eqx.Module):
         self.n_params = n_params
         self.n_context = n_context
         self.hidden_dims = hidden_dims
+        self.activation = activation
 
-        self.masks = _make_dense_autoregressive_masks(
+        masks = _make_dense_autoregressive_masks(
             params=2,
             event_size=self.n_params + self.n_context,
             hidden_units=self.hidden_dims,
             input_order="left-to-right",
         )  # 2 parameters for scale and shift factors
 
+        keys = jax.random.split(rng, len(masks))
+
+        in_shapes = [self.n_params + self.n_context] + [m.shape[-1] for m in masks[:-1]]
+
         layers = []
-        for mask in self.masks[:-1]:
+        for i, mask in enumerate(masks[:-1]):
             layers.append(
-                MaskedDense(in_dims=n_params, out_dims=mask.shape[-1], mask=mask),
+                MaskedDense(
+                    rng=keys[i],
+                    in_dims=in_shapes[i],
+                    out_dims=mask.shape[-1],
+                    mask=mask,
+                ),
             )
             layers.append(
                 eqx.nn.Lambda(getattr(jax.nn, activation)),
             )
         layers.append(
-            MaskedDense(out_dims=self.masks[-1].shape[-1], mask=self.masks[-1])
+            MaskedDense(
+                rng=keys[-1],
+                in_dims=in_shapes[-1],
+                out_dims=masks[-1].shape[-1],
+                mask=masks[-1],
+            )
         )
         self.layers = eqx.nn.Sequential(layers)
 
@@ -308,9 +323,12 @@ class MADE(eqx.Module):
         return params
 
 
-class MAF(distrax.Bijector):
+class MAF(eqx.Module):
+
+    autoregressive_fn: Callable = eqx.static_field()
+    unroll_loop: bool = eqx.static_field()
+
     def __init__(self, bijector_fn, unroll_loop=False):
-        super().__init__(event_ndims_in=1)
 
         self.autoregressive_fn = bijector_fn
         self.unroll_loop = unroll_loop

@@ -52,14 +52,17 @@ class MaskedAutoregressiveFlow(eqx.Module):
         self.use_random_permutations = use_random_permutations
         self.inverse = inverse
 
+        keys = jax.random.split(rng, self.n_transforms)
+
         self.made = [
             MADE(
+                keys[i],
                 n_params=self.n_dim,
                 n_context=self.n_context,
                 hidden_dims=self.hidden_dims,
                 activation=self.activation,
             )
-            for _ in range(self.n_transforms)
+            for i in range(self.n_transforms)
         ]
 
         bijectors = []
